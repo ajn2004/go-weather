@@ -1,6 +1,8 @@
 package scraping
 
-import "github.com/ajn2004/go-weather/weather"
+import (
+	"github.com/ajn2004/go-weather/weather"
+)
 
 // MapToWeatherData maps the scraped data to the WeatherData struct
 func mapObservationToCurrentWeather(resp ObservationResponse) weather.CurrentWeather {
@@ -37,51 +39,54 @@ func mapObservationToCurrentWeather(resp ObservationResponse) weather.CurrentWea
 	// Map wind direction from degrees to cardinal direction
 	if resp.Properties.WindDirection.Value != nil {
 		cw.WindDirection = degreesToCardinal(*resp.Properties.WindDirection.Value)
-	} else {
-		cw.WindDirection = weather.NA // default value if wind direction is missing
+	}
+	if resp.Properties.WindDirection.Value == nil && cw.WindSpeed != 0 {
+		cw.WindDirection = weather.Variable
+	} else if resp.Properties.WindDirection.Value == nil && cw.WindSpeed == 0.0 {
+		cw.WindDirection = weather.NA
 	}
 
 	return cw
 }
 
 func enforceCelsius(temp float64, unit string) float64 {
-	if unit == "unit:degC" {
+	if unit == "wmoUnit:degC" {
 		return temp
 	}
-	if unit == "unit:degF" {
+	if unit == "wmoUnit:degF" {
 		return (temp - 32) * 5.0 / 9.0
 	}
 	return temp // if unit is unrecognized, return the original value
 }
 
 func enforceMetersPerSec(speed float64, unit string) float64 {
-	if unit == "unit:km_h-1" {
+	if unit == "wmoUnit:km_h-1" {
 		return speed / 3.6
 	}
-	if unit == "unit:mph" {
+	if unit == "wmoUnit:mph" {
 		return speed * 1.60934 / 3.6
 	}
 	return speed // if unit is unrecognized, return the original value
 }
 
 func enforceAtmospheres(pressure float64, unit string) float64 {
-	if unit == "unit:hPa" {
+	if unit == "wmoUnit:hPa" {
 		return pressure / 1013.25
 	}
-	if unit == "unit:Pa" {
+	if unit == "wmoUnit:Pa" {
 		return pressure / 101325.0
 	}
 	return pressure // if unit is unrecognized, return the original value
 }
 
 func enforceKilometers(distance float64, unit string) float64 {
-	if unit == "unit:km" {
+	if unit == "wmoUnit:km" {
 		return distance
 	}
-	if unit == "unit:m" {
+	if unit == "wmoUnit:m" {
 		return distance / 1000.0
 	}
-	if unit == "unit:mi" {
+	if unit == "wmoUnit:mi" {
 		return distance * 1.60934
 	}
 	return distance // if unit is unrecognized, return the original value
@@ -106,6 +111,6 @@ func degreesToCardinal(degrees float64) weather.WindDirection {
 	case degrees < 337.5:
 		return weather.Northwest
 	default:
-		return weather.NA
+		return weather.Variable // default value if degrees is out of range
 	}
 }

@@ -19,6 +19,7 @@ const (
 	Southwest WindDirection = "SW"
 	West      WindDirection = "W"
 	Northwest WindDirection = "NW"
+	Variable  WindDirection = "VRBL"
 	NA        WindDirection = "NA"
 )
 
