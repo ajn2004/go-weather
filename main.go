@@ -7,7 +7,9 @@ import (
 )
 
 func main() {
-	obs, _ := scraping.GetCurrentObservation("KNYC", "andrew@daleego.com")
+	obs, _ := scraping.GetCurrentObservation("KNYC")
 	fmt.Printf("Observation: %v\n", obs)
 
+	forecast, _ := scraping.GetHourlyForecast("OKX", 34, 48)
+	fmt.Printf("Forecast: %v\n", forecast)
 }

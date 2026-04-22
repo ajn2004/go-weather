@@ -1,39 +1,45 @@
 package scraping
 
 import (
+	"fmt"
+
+	obs "github.com/ajn2004/go-weather/scraping/observations"
 	"github.com/ajn2004/go-weather/weather"
 )
 
+// Author Notes
+// This represents the interface between API and our app
+// Assume we'll be in Metric Standard units (C, m/s, atm, m) for our app, so we need to convert from whatever units the API gives us into our standard units
+
 // MapToWeatherData maps the scraped data to the WeatherData struct
-func mapObservationToCurrentWeather(resp ObservationResponse) weather.CurrentWeather {
+func mapObservationToCurrentWeather(resp obs.ObservationResponse) weather.CurrentWeather {
 	var cw weather.CurrentWeather
 	if resp.Properties.Temperature.Value != nil {
 		// check if units are in celsius, if not convert from fahrenheit to celsius
-		cw.Temperature = enforceCelsius(*resp.Properties.Temperature.Value, resp.Properties.Temperature.Unit)
+		cw.Temperature = enforceCelsius(*resp.Properties.Temperature.Value, resp.Properties.Temperature.UnitCode)
 
 	}
-	if resp.Properties.Humidity.Value != nil {
-		cw.Humidity = *resp.Properties.Humidity.Value
+	if resp.Properties.RelativeHumidity.Value != nil {
+		cw.Humidity = *resp.Properties.RelativeHumidity.Value
 	}
 	if resp.Properties.WindSpeed.Value != nil {
 		// check if units are in m/s, if not convert into m/s
-		cw.WindSpeed = enforceMetersPerSec(*resp.Properties.WindSpeed.Value, resp.Properties.WindSpeed.Unit)
+		cw.WindSpeed = enforceMetersPerSec(*resp.Properties.WindSpeed.Value, resp.Properties.WindSpeed.UnitCode)
 	}
-	if resp.Properties.Pressure.Value != nil {
+	if resp.Properties.BarometricPressure.Value != nil {
 		// check if units are in hPa, if not convert from Pa to hPa
 		// we want pressure in atm, so convert from hPa or Pa to atm
-		cw.Pressure = enforceAtmospheres(*resp.Properties.Pressure.Value, resp.Properties.Pressure.Unit)
+		cw.Pressure = enforceAtmospheres(*resp.Properties.BarometricPressure.Value, resp.Properties.BarometricPressure.UnitCode)
 	}
-	if resp.Properties.DewPoint.Value != nil {
-		cw.DewPoint = enforceCelsius(*resp.Properties.DewPoint.Value, resp.Properties.DewPoint.Unit)
+	if resp.Properties.Dewpoint.Value != nil {
+		cw.DewPoint = enforceCelsius(*resp.Properties.Dewpoint.Value, resp.Properties.Dewpoint.UnitCode)
 	}
 	if resp.Properties.Visibility.Value != nil {
-		// check if units are in km, if not convert from m to km
-		// we want visibility in km, so convert from m or mi to km
-		cw.Visibility = enforceKilometers(*resp.Properties.Visibility.Value, resp.Properties.Visibility.Unit)
+		// check if units are in m, if not convert from km to km
+		cw.Visibility = enforceMeters(*resp.Properties.Visibility.Value, resp.Properties.Visibility.UnitCode)
 	}
 
-	cw.Condition = resp.Properties.Condition
+	cw.Condition = resp.Properties.TextDescription
 	cw.LastUpdate = resp.Properties.Timestamp
 
 	// Map wind direction from degrees to cardinal direction
@@ -49,11 +55,65 @@ func mapObservationToCurrentWeather(resp ObservationResponse) weather.CurrentWea
 	return cw
 }
 
+func mapHourlyResponseToHourlyForecast(resp obs.HourlyForecastResponse, number int) []weather.HourlyForecast {
+	// set default number to 24 hours ahead
+	if number <= 0 {
+		number = 24 // default to 24 hours if number is not positive
+	}
+	var hfs []weather.HourlyForecast
+
+	for i, period := range resp.Properties.Periods {
+		if i >= number {
+			break // stop if we've reached the desired number of hours
+		}
+		var hf weather.HourlyForecast
+		hf.Time = period.StartTime
+		hf.Condition = period.ShortForecast
+
+		if period.Temperature.Kind() == obs.TemperatureQV && period.Temperature.QV.Value != nil {
+			hf.Temperature = enforceCelsius(*period.Temperature.QV.Value, period.Temperature.QV.UnitCode)
+		} else if period.Temperature.Kind() == obs.TemperatureInt && period.Temperature.Int != nil {
+			hf.Temperature = float64(*period.Temperature.Int) // assume int is in celsius, convert to float
+		}
+
+		if period.RelativeHumidity != nil {
+			hf.Humidity = *period.RelativeHumidity.Value
+		}
+
+		if period.WindSpeed.Kind() == obs.WindSpeedQV && period.WindSpeed.QV.Value != nil {
+			hf.WindSpeed = enforceMetersPerSec(*period.WindSpeed.QV.Value, period.WindSpeed.QV.UnitCode)
+		} else if period.WindSpeed.Kind() == obs.WindSpeedString && period.WindSpeed.Str != nil {
+			// parse the string to extract the numeric value and unit
+			var speed float64
+			var unit string
+			n, err := fmt.Sscanf(*period.WindSpeed.Str, "%f %s", &speed, &unit)
+			if err == nil && n == 2 {
+				hf.WindSpeed = enforceMetersPerSec(speed, unit)
+			}
+		}
+		hf.WindDirection = windDirectionToEnum(period.WindDirection)
+
+		if period.Dewpoint != nil && period.Dewpoint.Value != nil {
+			hf.DewPoint = enforceCelsius(*period.Dewpoint.Value, period.Dewpoint.UnitCode)
+		}
+
+		if period.ProbabilityOfPrecipitation != nil && period.ProbabilityOfPrecipitation.Value != nil {
+			hf.PrecipChance = *period.ProbabilityOfPrecipitation.Value
+		}
+
+		hfs = append(hfs, hf)
+
+	}
+	return hfs
+}
+
+// Conversion functions to enforce consistent units across the app
+
 func enforceCelsius(temp float64, unit string) float64 {
-	if unit == "wmoUnit:degC" {
+	if unit == "wmoUnit:degC" || unit == "C" {
 		return temp
 	}
-	if unit == "wmoUnit:degF" {
+	if unit == "wmoUnit:degF" || unit == "F" {
 		return (temp - 32) * 5.0 / 9.0
 	}
 	return temp // if unit is unrecognized, return the original value
@@ -79,15 +139,15 @@ func enforceAtmospheres(pressure float64, unit string) float64 {
 	return pressure // if unit is unrecognized, return the original value
 }
 
-func enforceKilometers(distance float64, unit string) float64 {
+func enforceMeters(distance float64, unit string) float64 {
 	if unit == "wmoUnit:km" {
-		return distance
+		return distance * 1000.0
 	}
 	if unit == "wmoUnit:m" {
-		return distance / 1000.0
+		return distance
 	}
 	if unit == "wmoUnit:mi" {
-		return distance * 1.60934
+		return distance * 1609.34
 	}
 	return distance // if unit is unrecognized, return the original value
 }
@@ -112,5 +172,32 @@ func degreesToCardinal(degrees float64) weather.WindDirection {
 		return weather.Northwest
 	default:
 		return weather.Variable // default value if degrees is out of range
+	}
+}
+
+func windDirectionToEnum(direction string) weather.WindDirection {
+	switch direction {
+	case "N":
+		return weather.North
+	case "NE":
+		return weather.Northeast
+	case "E":
+		return weather.East
+	case "SE":
+		return weather.Southeast
+	case "S":
+		return weather.South
+	case "SW":
+		return weather.Southwest
+	case "W":
+		return weather.West
+	case "NW":
+		return weather.Northwest
+	case "VRBL":
+		return weather.Variable
+	case "NA":
+		return weather.NA
+	default:
+		return weather.Variable // default value if direction is unrecognized
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/ajn2004/go-weather/scraping/observations"
 	"github.com/ajn2004/go-weather/weather"
 )
 
@@ -35,7 +36,7 @@ func GetCurrentObservation(stationID string) (weather.CurrentWeather, error) {
 	defer res.Body.Close() // ensure the response body is closed after we're done with it
 
 	// Decode the JSON response into the ObservationResponse struct
-	var resp ObservationResponse
+	var resp observations.ObservationResponse
 
 	if err := json.NewDecoder(res.Body).Decode(&resp); err != nil {
 		return obs, fmt.Errorf("error decoding response: %w", err)
@@ -51,8 +52,8 @@ func GetCurrentObservation(stationID string) (weather.CurrentWeather, error) {
 	return obs, nil
 }
 
-func getHourlyForecast(forecastOfficeId string, forecastGridX int, forecastGridY int) (weather.HourlyForecast, error) {
-	var forecast weather.HourlyForecast
+func GetHourlyForecast(forecastOfficeId string, forecastGridX int, forecastGridY int) ([]weather.HourlyForecast, error) {
+	var forecast []weather.HourlyForecast
 
 	url := fmt.Sprintf("https://api.weather.gov/gridpoints/%s/%d,%d/forecast/hourly", forecastOfficeId, forecastGridX, forecastGridY)
 	client := &http.Client{
@@ -73,7 +74,12 @@ func getHourlyForecast(forecastOfficeId string, forecastGridX int, forecastGridY
 	}
 	defer res.Body.Close()
 
-	var resp HourlyForecastResponse
+	var resp observations.HourlyForecastResponse
 
+	if err := json.NewDecoder(res.Body).Decode(&resp); err != nil {
+		return forecast, fmt.Errorf("error decoding hourly forecast response: %w", err)
+	}
+
+	forecast = mapHourlyResponseToHourlyForecast(resp, 12)
 	return forecast, nil
 }
