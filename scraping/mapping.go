@@ -55,6 +55,7 @@ func mapObservationToCurrentWeather(resp obs.ObservationResponse) weather.Curren
 	return cw
 }
 
+// Hourly Forecast Mapping
 func mapHourlyResponseToHourlyForecast(resp obs.HourlyForecastResponse, number int) []weather.HourlyForecast {
 	// set default number to 24 hours ahead
 	if number <= 0 {

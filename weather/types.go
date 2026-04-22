@@ -48,8 +48,8 @@ type HourlyForecast struct {
 
 type DailyForecast struct {
 	Date         time.Time
-	HighTemp     float64
-	LowTemp      float64
+	Temperature  float64
+	IsDaytime    bool
 	Humidity     float64
 	Condition    string
 	PrecipChance float64
