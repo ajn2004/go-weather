@@ -47,12 +47,15 @@ type HourlyForecast struct {
 }
 
 type DailyForecast struct {
-	Date         time.Time
-	Temperature  float64
-	IsDaytime    bool
-	Humidity     float64
-	Condition    string
-	PrecipChance float64
+	StartTime     time.Time
+	EndTime       time.Time
+	Name          string
+	Temperature   float64
+	WindDirection WindDirection
+	WindSpeed     float64
+	IsDaytime     bool
+	ShortForecast string
+	PrecipChance  int16
 }
 
 type WeatherData struct {
@@ -60,4 +63,10 @@ type WeatherData struct {
 	Hourly      []HourlyForecast
 	Daily       []DailyForecast
 	LastRefresh time.Time
+}
+
+type TemperatureQuantity struct {
+	Value float64
+	High  float64
+	Low   float64
 }

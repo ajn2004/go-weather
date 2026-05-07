@@ -11,7 +11,8 @@ func main() {
 	fmt.Printf("Observation: %v\n", obs)
 
 	forecast, _ := scraping.GetHourlyForecast("OKX", 34, 48)
-	fmt.Printf("Forecast: %v\n", forecast[0].Temperature)
-	res, _ := scraping.ScrapeWebsite()
-	fmt.Printf("Response: %v\n", res)
+	fmt.Printf("Forecast: %v\n", forecast[0])
+
+	daily, _ := scraping.GetDailyForecast("OKX", 34, 48)
+	fmt.Printf("Daily Forecast: %v\n", daily)
 }

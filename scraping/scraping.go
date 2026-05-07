@@ -75,6 +75,33 @@ func GetHourlyForecast(forecastOfficeId string, forecastGridX int, forecastGridY
 	return forecast, nil
 }
 
+// daily scraping
+func GetDailyForecast(forecastOfficeId string, forecastGridX int, forecastGridY int) ([]weather.DailyForecast, error) {
+	var forecast []weather.DailyForecast
+
+	url := fmt.Sprintf("https://api.weather.gov/gridpoints/%s/%d,%d/forecast", forecastOfficeId, forecastGridX, forecastGridY)
+	client := getClient()
+
+	req, err := getRequest(url)
+	if err != nil {
+		return forecast, err
+	}
+
+	res, err := client.Do(req)
+	if err != nil || res.StatusCode != http.StatusOK {
+		return forecast, fmt.Errorf("error fetching daily forecast: %w", err)
+	}
+	defer res.Body.Close()
+
+	var resp observations.DailyForecastResponse
+	if err := json.NewDecoder(res.Body).Decode(&resp); err != nil {
+		return forecast, fmt.Errorf("error decoding daily forecast response: %w", err)
+	}
+
+	forecast = mapDailyResponseToDailyForecast(resp, 7)
+	return forecast, nil
+}
+
 func getClient() *http.Client {
 	return &http.Client{
 		Timeout: 10 * time.Second,
