@@ -38,26 +38,23 @@ func main() {
 
 	log.Fatal(e.Start(":8080"))
 
-	// obs, _ := provider.GetCurrentObservation("KNYC")
-	// fmt.Printf("Observation: %v\n", obs)
-
-	// forecast, _ := provider.GetHourlyForecast("OKX", 34, 48)
-	// fmt.Printf("Forecast: %v\n", forecast[0])
-
-	// daily, _ := provider.GetDailyForecast("OKX", 34, 48)
-	// fmt.Printf("Daily Forecast: %v\n", daily)\
-
 }
 
 func StartRefreshLoop(svc *weather.Service) {
+	startRefreshLoopWithIntervals(svc, 5*time.Minute, 15*time.Minute, nil)
+}
+
+func startRefreshLoopWithIntervals(svc *weather.Service, currentInterval, fullInterval time.Duration, stop <-chan struct{}) {
 	go func() {
-		currentTicker := time.NewTicker(5 * time.Minute)
-		fullTicker := time.NewTicker(15 * time.Minute)
+		currentTicker := time.NewTicker(currentInterval)
+		fullTicker := time.NewTicker(fullInterval)
 		defer currentTicker.Stop()
 		defer fullTicker.Stop()
 
 		for {
 			select {
+			case <-stop:
+				return
 			case <-currentTicker.C:
 				if err := svc.RefreshCurrent(); err != nil {
 					log.Printf("Error refreshing current weather: %v", err)

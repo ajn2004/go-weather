@@ -1,110 +1,88 @@
 # go-weather
 
-`go-weather` is a Go weather client focused on pulling NOAA/NWS weather data from `api.weather.gov` and mapping it into app-friendly domain types.
+`go-weather` is a Go weather API service backed by NOAA/NWS (`api.weather.gov`).
 
-## Features
+It fetches current observations, hourly forecast, and daily forecast, normalizes units into app-facing types, caches data in memory, and serves it over HTTP.
 
-- Fetch latest station observation data by station ID
-- Fetch hourly forecast data by forecast office + grid coordinates
-- Normalize common units (temperature, wind speed, pressure, visibility)
-- Map wind direction into typed cardinal values
-- Support mixed API payload shapes (for example, temperature and wind speed variants)
+## Current Features
+
+- HTTP API built with Echo (`:8080`)
+- Weather data from NWS by station + forecast grid
+- In-memory weather cache in `weather.Service`
+- Manual refresh endpoints (`POST /weather*`)
+- Background refresh loop:
+  - current weather every 5 minutes
+  - full weather refresh every 15 minutes
+- Unit normalization and wind direction mapping in `scraping/mapping.go`
 
 ## Project Layout
 
-- `main.go`: Example entry point showing current observation and hourly forecast calls
-- `scraping/`: Data fetching + mapping layer
-- `scraping/observations/`: API response models and custom JSON unmarshal helpers
-- `weather/`: App/domain weather types
-- `api/`: Placeholder package for future API layer
+- `main.go`: app bootstrap, service wiring, refresh loop, and HTTP server startup
+- `api/`: HTTP handlers and route registration
+- `weather/`: domain types + in-memory service/cache
+- `scraping/`: NWS provider, transport, and mapping logic
+- `scraping/observations/`: NWS response models and JSON helpers
 
 ## Requirements
 
-- Go `1.26` (as defined in `go.mod`)
+- Go `1.26` (from `go.mod`)
 - Network access to `https://api.weather.gov`
-- A contact email set as `EMAIL` (used in the request `User-Agent`)
+- Environment variables:
+  - `EMAIL` (used in NWS `User-Agent`)
+  - `STATION` (example: `KNYC`)
+  - `OFFICE` (example: `OKX`)
+  - `GRIDX` (example: `34`)
+  - `GRIDY` (example: `48`)
 
-## Setup
+Optional:
 
-```bash
-git clone https://github.com/ajn2004/go-weather.git
-cd go-weather
-go mod download
-```
-
-Set your environment variable:
-
-```bash
-export EMAIL="you@example.com"
-```
-
-Optional (for the website scraping helper):
-
-```bash
-export LATLONG="lat=40.7128&lon=-74.0060"
-```
+- `LATLONG` (only used by experimental `ScrapeWebsite()`)
 
 ## Run
-
-Run the example program:
 
 ```bash
 go run .
 ```
 
-The example currently:
+Server listens on `http://localhost:8080`.
 
-- Gets latest observation for station `KNYC`
-- Gets hourly forecast for office `OKX` at grid `34,48`
-- Prints one current observation and the first hourly forecast period
+## API Endpoints
 
-## Usage Example
+- `GET /health`
+- `GET /weather`
+- `POST /weather`
+- `GET /weather/current`
+- `POST /weather/current`
+- `GET /weather/hourly`
+- `POST /weather/hourly`
+- `GET /weather/daily`
+- `POST /weather/daily`
 
-```go
-package main
+Quick check:
 
-import (
-	"fmt"
-	"log"
-
-	"github.com/ajn2004/go-weather/scraping"
-)
-
-func main() {
-	obs, err := scraping.GetCurrentObservation("KNYC")
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Printf("Current: %+v\n", obs)
-
-	hourly, err := scraping.GetHourlyForecast("OKX", 34, 48)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Printf("Next hour: %+v\n", hourly[0])
-}
+```bash
+curl http://localhost:8080/health
+curl http://localhost:8080/weather/current
+curl -X POST http://localhost:8080/weather/hourly
 ```
 
-## Public Functions
+## Core Types and Data Flow
 
-- `scraping.GetCurrentObservation(stationID string) (weather.CurrentWeather, error)`
-- `scraping.GetHourlyForecast(forecastOfficeId string, forecastGridX int, forecastGridY int) ([]weather.HourlyForecast, error)`
-- `scraping.ScrapeWebsite() (string, error)` (experimental helper)
-
-## Notes and Limitations
-
-- `main.go` currently ignores returned errors; production callers should always check errors.
-- `ScrapeWebsite()` is exploratory and not a stable API.
-- There are currently no automated tests in this repository.
-- Station IDs and forecast grid coordinates must be valid NWS identifiers.
+- `scraping.WeatherGovProvider` implements `weather.Provider`
+- `weather.Service` owns cached `WeatherData` and refresh methods
+- `api.Handler` reads from and refreshes `weather.Service`
 
 ## Development
-
-Common commands:
 
 ```bash
 go fmt ./...
 go test ./...
 ```
 
-If you add tests or new packages, prefer keeping parsing, transport, and domain mapping responsibilities separated to preserve maintainability.
+Current test status: repository compiles and `go test ./...` passes, but there are no test files yet.
+
+## Notes
+
+- The service exits at startup if `GRIDX` or `GRIDY` are missing/invalid.
+- Station/office/grid values must be valid NWS identifiers.
+- `scraping/ScrapeWebsite()` is experimental and not part of the HTTP API path.
