@@ -70,6 +70,9 @@ func mapHourlyResponseToHourlyForecast(resp obs.HourlyForecastResponse, number i
 		var hf weather.HourlyForecast
 		hf.Time = period.StartTime
 		hf.Condition = period.ShortForecast
+		if period.Icon != nil {
+			hf.Icon = *period.Icon
+		}
 		if period.Temperature.Kind() == obs.TemperatureQV && period.Temperature.QV.Value != nil {
 			hf.Temperature = enforceCelsius(*period.Temperature.QV.Value, period.Temperature.QV.UnitCode)
 		} else if period.Temperature.Kind() == obs.TemperatureInt && period.Temperature.Int != nil {
@@ -97,8 +100,9 @@ func mapHourlyResponseToHourlyForecast(resp obs.HourlyForecastResponse, number i
 			hf.DewPoint = enforceCelsius(*period.Dewpoint.Value, period.Dewpoint.UnitCode)
 		}
 
-		if period.ProbabilityOfPrecipitation != nil && period.ProbabilityOfPrecipitation.Value != nil {
-			hf.PrecipChance = *period.ProbabilityOfPrecipitation.Value
+		if period.ProbabilityOfPrecipitation != nil &&
+			period.ProbabilityOfPrecipitation.Value != nil {
+			hf.PrecipChance = int16(*period.ProbabilityOfPrecipitation.Value)
 		}
 
 		hfs = append(hfs, hf)
@@ -127,6 +131,9 @@ func mapDailyResponseToDailyForecast(resp obs.DailyForecastResponse, number int)
 		df.IsDaytime = period.IsDaytime
 		df.PrecipChance = int16(*period.ProbabilityOfPrecipitation.Value)
 		df.WindDirection = windDirectionToEnum(period.WindDirection)
+		if period.Icon != nil {
+			df.Icon = *period.Icon
+		}
 		if period.Temperature.Kind() == obs.TemperatureQV && period.Temperature.QV.Value != nil {
 			df.Temperature = enforceCelsius(*period.Temperature.QV.Value, period.Temperature.QV.UnitCode)
 		} else if period.Temperature.Kind() == obs.TemperatureInt && period.Temperature.Int != nil {

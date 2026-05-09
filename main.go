@@ -7,12 +7,15 @@ import (
 )
 
 func main() {
-	obs, _ := scraping.GetCurrentObservation("KNYC")
+
+	provider := scraping.WeatherGovProvider{}
+
+	obs, _ := provider.GetCurrentObservation("KNYC")
 	fmt.Printf("Observation: %v\n", obs)
 
-	forecast, _ := scraping.GetHourlyForecast("OKX", 34, 48)
+	forecast, _ := provider.GetHourlyForecast("OKX", 34, 48)
 	fmt.Printf("Forecast: %v\n", forecast[0])
 
-	daily, _ := scraping.GetDailyForecast("OKX", 34, 48)
+	daily, _ := provider.GetDailyForecast("OKX", 34, 48)
 	fmt.Printf("Daily Forecast: %v\n", daily)
 }

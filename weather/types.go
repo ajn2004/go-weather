@@ -42,8 +42,9 @@ type HourlyForecast struct {
 	WindSpeed     float64
 	WindDirection WindDirection
 	DewPoint      float64
-	PrecipChance  float64
+	PrecipChance  int16
 	Condition     string
+	Icon          string
 }
 
 type DailyForecast struct {
@@ -56,6 +57,7 @@ type DailyForecast struct {
 	IsDaytime     bool
 	ShortForecast string
 	PrecipChance  int16
+	Icon          string
 }
 
 type WeatherData struct {

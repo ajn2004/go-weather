@@ -70,6 +70,9 @@ func mapHourlyResponseToHourlyForecast(resp obs.HourlyForecastResponse, number i
 		var hf weather.HourlyForecast
 		hf.Time = period.StartTime
 		hf.Condition = period.ShortForecast
+		if period.Icon != nil {
+			hf.Icon = *period.Icon
+		}
 		if period.Temperature.Kind() == obs.TemperatureQV && period.Temperature.QV.Value != nil {
 			hf.Temperature = enforceCelsius(*period.Temperature.QV.Value, period.Temperature.QV.UnitCode)
 		} else if period.Temperature.Kind() == obs.TemperatureInt && period.Temperature.Int != nil {
@@ -98,7 +101,7 @@ func mapHourlyResponseToHourlyForecast(resp obs.HourlyForecastResponse, number i
 		}
 
 		if period.ProbabilityOfPrecipitation != nil && period.ProbabilityOfPrecipitation.Value != nil {
-			hf.PrecipChance = *period.ProbabilityOfPrecipitation.Value
+			hf.PrecipChance = int16(*period.ProbabilityOfPrecipitation.Value)
 		}
 
 		hfs = append(hfs, hf)
@@ -126,10 +129,25 @@ func mapDailyResponseToDailyForecast(resp obs.DailyForecastResponse, number int)
 		df.ShortForecast = period.ShortForecast
 		df.IsDaytime = period.IsDaytime
 		df.PrecipChance = int16(*period.ProbabilityOfPrecipitation.Value)
+		df.WindDirection = windDirectionToEnum(period.WindDirection)
+		if period.Icon != nil {
+			df.Icon = *period.Icon
+		}
 		if period.Temperature.Kind() == obs.TemperatureQV && period.Temperature.QV.Value != nil {
 			df.Temperature = enforceCelsius(*period.Temperature.QV.Value, period.Temperature.QV.UnitCode)
 		} else if period.Temperature.Kind() == obs.TemperatureInt && period.Temperature.Int != nil {
 			df.Temperature = enforceCelsius(float64(*period.Temperature.Int), period.TemperatureUnit) // assume int is in celsius, convert to float
+		}
+		if period.WindSpeed.Kind() == obs.WindSpeedQV && period.WindSpeed.QV.Value != nil {
+			df.WindSpeed = enforceMetersPerSec(*period.WindSpeed.QV.Value, period.WindSpeed.QV.UnitCode)
+		} else if period.WindSpeed.Kind() == obs.WindSpeedString && period.WindSpeed.Str != nil {
+			// parse the string to extract the numeric value and unit
+			var speed float64
+			var unit string
+			n, err := fmt.Sscanf(*period.WindSpeed.Str, "%f %s", &speed, &unit)
+			if err == nil && n == 2 {
+				df.WindSpeed = enforceMetersPerSec(speed, unit)
+			}
 		}
 
 		dfs = append(dfs, df)

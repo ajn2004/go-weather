@@ -1,1 +1,153 @@
+// weather/service.go
+// weather.Service should be the file that knows
+// when to call current/hourly/daily fetchers
+// how to combine these fetches into one WeatherData
+// when to update the in-memory cache
+// how to avoid overalpping refreshes
+// what to do on partial failure
+// what data handlers should read
 package weather
+
+import (
+	"sync"
+	"time"
+)
+
+// avoid circular imports
+type Provider interface {
+	GetCurrentObservation(stationID string) (CurrentWeather, error)
+	GetHourlyForecast(forecastOfficeID string, forecastGridX int, forecastGridY int) ([]HourlyForecast, error)
+	GetDailyForecast(forecastOfficeID string, forecastGridX int, forecastGridY int) ([]DailyForecast, error)
+}
+
+type Service struct {
+	provider  Provider
+	data      WeatherData
+	mu        sync.RWMutex
+	refreshMu sync.Mutex
+
+	stationID        string
+	forecastOfficeID string
+	forecastGridX    int
+	forecastGridY    int
+}
+
+// initialization
+func NewService(provider Provider, stationID string, forecastOfficeID string, forecastGridX int, forecastGridY int) *Service {
+	return &Service{
+		provider:         provider,
+		stationID:        stationID,
+		forecastOfficeID: forecastOfficeID,
+		forecastGridX:    forecastGridX,
+		forecastGridY:    forecastGridY,
+	}
+}
+
+// refresh data
+func (s *Service) RefreshCurrent() error {
+	current, err := s.provider.GetCurrentObservation(s.stationID)
+	if err != nil {
+		return err
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.data.Current = current
+	s.data.LastRefresh = time.Now()
+
+	return nil
+}
+
+func (s *Service) RefreshForecast() error {
+	s.refreshMu.Lock()
+	defer s.refreshMu.Unlock()
+
+	hourly, err := s.provider.GetHourlyForecast(s.forecastOfficeID, s.forecastGridX, s.forecastGridY)
+	if err != nil {
+		return err
+	}
+
+	daily, err := s.provider.GetDailyForecast(s.forecastOfficeID, s.forecastGridX, s.forecastGridY)
+	if err != nil {
+		return err
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.data.Hourly = hourly
+	s.data.Daily = daily
+	s.data.LastRefresh = time.Now()
+
+	return nil
+}
+
+func (s *Service) Refresh() error {
+	current, err := s.provider.GetCurrentObservation(s.stationID)
+	if err != nil {
+		return err
+	}
+
+	hourly, err := s.provider.GetHourlyForecast(s.forecastOfficeID, s.forecastGridX, s.forecastGridY)
+	if err != nil {
+		return err
+	}
+
+	daily, err := s.provider.GetDailyForecast(s.forecastOfficeID, s.forecastGridX, s.forecastGridY)
+	if err != nil {
+		return err
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.data.Current = current
+	s.data.Hourly = hourly
+	s.data.Daily = daily
+	s.data.LastRefresh = time.Now()
+
+	return nil
+}
+
+// get data
+
+func (s *Service) GetCurrent() CurrentWeather {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.data.Current
+}
+
+func (s *Service) GetHourly() []HourlyForecast {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	hourly := s.data.Hourly
+	hourly = make([]HourlyForecast, len(s.data.Hourly))
+	copy(hourly, s.data.Hourly)
+
+	return hourly
+}
+
+func (s *Service) GetDaily() []DailyForecast {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	daily := s.data.Daily
+	daily = make([]DailyForecast, len(s.data.Daily))
+	copy(daily, s.data.Daily)
+
+	return s.data.Daily
+}
+
+func (s *Service) GetWeatherData() WeatherData {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	data := s.data
+	data.Hourly = make([]HourlyForecast, len(s.data.Hourly))
+	copy(data.Hourly, s.data.Hourly)
+
+	data.Daily = make([]DailyForecast, len(s.data.Daily))
+	copy(data.Daily, s.data.Daily)
+
+	return s.data
+}
