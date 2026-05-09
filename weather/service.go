@@ -58,7 +58,7 @@ func (s *Service) RefreshCurrent() error {
 	return nil
 }
 
-func (s *Service) RefreshForecast() error {
+func (s *Service) RefreshHourly() error {
 	s.refreshMu.Lock()
 	defer s.refreshMu.Unlock()
 
@@ -67,6 +67,18 @@ func (s *Service) RefreshForecast() error {
 		return err
 	}
 
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.data.Hourly = hourly
+	s.data.LastRefresh = time.Now()
+
+	return nil
+}
+
+func (s *Service) RefreshDaily() error {
+	s.refreshMu.Lock()
+	defer s.refreshMu.Unlock()
+
 	daily, err := s.provider.GetDailyForecast(s.forecastOfficeID, s.forecastGridX, s.forecastGridY)
 	if err != nil {
 		return err
@@ -74,7 +86,6 @@ func (s *Service) RefreshForecast() error {
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.data.Hourly = hourly
 	s.data.Daily = daily
 	s.data.LastRefresh = time.Now()
 
