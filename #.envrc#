@@ -1,7 +1,0 @@
-export EMAIL=andrew@daleego.com
-export STATION=KNYC
-export OFFICE=OKX
-export GRIDX=34
-export GRIDY=48
-export LATLONG="lat=40.7687768&lon=-73.9583457"
-export PORT=":8080"
