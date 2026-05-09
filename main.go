@@ -2,6 +2,8 @@ package main
 
 import (
 	"log"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/ajn2004/go-weather/api"
@@ -14,8 +16,15 @@ func main() {
 
 	// Example usage of the WeatherGovProvider
 	provider := scraping.WeatherGovProvider{}
-
-	svc := weather.NewService(provider, "KNYC", "OKX", 34, 48)
+	gridx, err := strconv.Atoi(os.Getenv("GRIDX"))
+	if err != nil {
+		log.Fatalf("Invalid GRIDX value: %v", err)
+	}
+	gridy, err := strconv.Atoi(os.Getenv("GRIDY"))
+	if err != nil {
+		log.Fatalf("Invalid GRIDY value: %v", err)
+	}
+	svc := weather.NewService(provider, os.Getenv("STATION"), os.Getenv("OFFICE"), gridx, gridy)
 
 	if err := svc.Refresh(); err != nil {
 		log.Fatalf("Failed to refresh weather data: %v", err)
