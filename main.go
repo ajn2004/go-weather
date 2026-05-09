@@ -36,7 +36,7 @@ func main() {
 
 	api.RegisterRoutes(e, svc)
 
-	log.Fatal(e.Start(":8080"))
+	log.Fatal(e.Start(":" + os.Getenv("PORT")))
 
 }
 
